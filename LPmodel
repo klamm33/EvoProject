@@ -1,0 +1,22 @@
+EvoProject
+==========
+
+param s; #number of total time intervals
+param p; #number of parallel sessions
+param t; #number of talks per session
+param T; #total number of talks
+param g; #number of groups rep. talks were chosen from
+param d {i in 1..T, j in 1..T}; #similarity data
+param rep {i in 1..g}; #array containing representative talks 
+
+
+var y {i in 1..g, j in 1..s} binary; #equals 1 if slot s has a session of type g assigned to it
+var x {i in 1..T, j in 1..g, k in 1..s} >=0 <=1; #equals 1 if talk T is assigned to the session of type g in slot s 
+
+
+maximize similarity: sum{i in 1..T, j in 1..g, k in 1..s} d[i, rep[j]]*x[i,j,k];
+
+
+subject to talks {j in 1..g, k in 1..s}: sum {i in 1..T} x[i,j,k]<=t*y[j,k];
+subject to sessions {j in 1..s}: sum{i in 1..g} y[i,j]=p;
+subject to talks2 {i in 1..T}: sum{j in 1..g, k in 1..s} x[i,j,k]=1;
