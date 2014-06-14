@@ -1,0 +1,197 @@
+EvoProject
+==========
+function [ x, meanDR, total_sim, total_dif]=scheduleEvo(d)
+
+
+slots = 16; %number of time intervals
+P = 14; %number of concurrent sessions for each interval
+H = 0.95; %threshold for similarities between talks in the same session
+L = 0.05; %threshold for similarities between talks in concurrent sessions
+K = 1000; %number of talks to place by threshold
+
+x = cell(slots, P);
+s=[5 5 5 5 5 5 5 5 5 5 5 5 5 5;5 5 5 5 5 5 5 5 5 5 5 5 5 5;5 5 5 5 5 5 5 5 5 5 5 5 5 5;
+  5 5 5 5 5 5 5 5 5 5 5 5 5 5;5 5 5 5 5 5 5 5 5 5 5 5 5 5;5 5 5 5 5 5 5 5 5 5 5 5 5 5;
+  5 5 5 5 5 5 5 5 5 5 5 5 5 5;5 5 5 5 5 5 5 5 5 5 5 5 5 5;5 5 5 5 5 5 5 5 5 5 5 5 5 5;
+  5 5 5 5 5 5 5 5 5 5 5 5 5 5;5 5 5 5 5 5 5 5 5 5 5 5 5 5;5 5 5 5 5 5 5 5 5 5 5 5 5 5;
+  5 5 5 5 5 5 5 5 5 0 0 0 0 0;5 5 5 5 5 5 5 5 5 0 0 0 0 0;5 5 5 5 5 5 5 5 5 0 0 0 0 0;
+  5 5 5 5 5 5 5 5 5 0 0 0 0 0;];
+a=[];
+
+for t=1:K
+    row=1;
+    col=1;
+    while row <= slots && col <= P
+        if isempty(x{row,col}) && s(row,col)>0
+            x{row,col}=(t);
+            col=P+5;
+        else
+             array=x{row,col};
+             simflag=1;
+             for n=1:length(array)
+                 if d(t,array(n)) < H
+                    simflag=0;
+                 end
+             end
+             if simflag==1
+                 difflag=1;
+                 for i=col+1:P
+                     if ~isempty(x{row, i})
+                        a=x{row,i};
+                        for n=1:length(a)
+                            if d(t,a(n)) > L
+                               difflag=0;
+                            end
+                        end
+                     end
+                 end   
+                 if difflag==1 
+                     if length(x{row, col})<s(row,col)
+                        x{row,col}=[array, t];
+                        col=P+5;
+                     else
+                         if(row==slots)
+                             a=[a,t];
+                             col=P+5;
+                         else
+                            row=row+1;
+                            col=1;
+                         end
+                     end
+                 else
+                     if(row==slots)
+                            a=[a,t];
+                            col=P+5;
+                     else
+                        row=row+1;
+                        col=1;
+                     end
+                 end
+             else
+                difflag=1;
+                for n=1:length(array)
+                    if d(t,array(n)) > L
+                        difflag=0;
+                    end
+                end
+                if difflag == 0
+                    if(row==slots)
+                         a=[a,t];
+                         col=P+5;
+                     else
+                        row=row+1;
+                        col=1;
+                     end
+                else
+                    if col==P
+                        if(row==slots)
+                             a=[a,t];
+                             col=P+5;
+                        else
+                            row=row+1;
+                            col=1;
+                        end
+                    else
+                        col=col+1;
+                    end
+                end
+             end
+        end
+    end
+end
+
+if ~isempty(a)
+    for t=1:length(a)
+         cost=zeros(slots, P);
+         for row=1:slots
+            for col=1:P
+                if length(x{row,col})==s(row,col);
+                    cost(row,col)=NaN; 
+                else 
+                    talks=x{row, col};
+                    goodness=0;
+                    badness=0;
+                    for n=1:length(talks)
+                        goodness=goodness+d(a(t),talks(n));
+                    end
+                    num=1;
+                    for i=1:P
+                        if i~=col
+                            b=x{row,i};
+                            num=num+length(b);
+                            for n=1:length(b)
+                                badness=badness+d(a(t),b(n));
+                            end
+                        end
+                    end
+                    cost(row,col)=(goodness/(length(talks)+1))-(badness/num);
+                end
+            end
+        end
+    [m,i]=max(cost);
+    [m2,ind]=max(m);
+    x{i(ind),ind}=[x{i(ind),ind}, a(t)];
+    end
+end
+
+for t=K+1:length(d)
+   cost=zeros(slots, P);
+   for row=1:slots
+        for col=1:P
+            if length(x{row,col})==s(row,col);
+               cost(row,col)=NaN; 
+            else 
+                talks=x{row, col};
+                goodness=0;
+                badness=0;
+                for n=1:length(talks)
+                    goodness=goodness+d(t,talks(n));
+                end
+                num=1;
+                for i=1:P
+                    if i~=col
+                        a=x{row,i};
+                        num=num+length(a);
+                        for n=1:length(a)
+                            badness=badness+d(t,a(n));
+                        end
+                    end
+                end
+                cost(row,col)=(goodness/(length(talks)+1))-(badness/num);
+            end
+        end
+    end
+    [m,i]=max(cost);
+    [m2,ind]=max(m);
+    x{i(ind),ind}=[x{i(ind),ind}, t];
+end
+
+total_sim=0;
+total_dif=0;
+num_simpairs=0;
+num_difpairs=0;
+for row=1:slots
+    for col=1:P
+        talks=x{row,col};
+        for i=1:length(talks)
+            for j=i+1:length(talks)
+                total_sim=total_sim+d(talks(i),talks(j));
+                num_simpairs=num_simpairs+1;
+            end
+        end
+        if col~=P
+            for c=col+1:P
+                a=x{row,c};
+                for i=1:length(talks)
+                    for j=1:length(a);
+                        total_dif=total_dif+d(talks(i),a(j));
+                        num_difpairs=num_difpairs+1;
+                    end
+                end
+            end
+        end
+    end
+meanSim=total_sim/num_simpairs;
+meanDif=total_dif/num_difpairs;
+meanDR=meanSim/meanDif;
+end
