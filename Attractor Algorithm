@@ -1,0 +1,206 @@
+EvoProject
+==========
+package mst;
+
+public class Attractor {
+
+	int component;
+	int compsize;
+	int reptalk;
+	double mintosame;
+	double maxtodiff;
+
+	public Attractor(int component, int compsize, int reptalk, double mintosame, double maxtodiff){
+		this.component=component;
+		this.compsize=compsize;
+		this.reptalk=reptalk;
+		this.mintosame=mintosame;
+		this.maxtodiff=maxtodiff;
+		
+	}
+}
+
+package mst;
+
+public class Edge {
+
+
+		int from;
+		int to;
+		double weight;
+
+		public Edge(int from, int to, double weight){
+			this.from=from;
+			this.to=to;
+			this.weight=weight;
+			
+		}
+	}
+
+package mst;
+import mst.Edge;
+import mst.Attractor;
+import java.io.*;
+import java.util.*;
+
+public class MST {
+
+	static int T=1033;
+	static int G=20;
+	static double[][] d = new double[T+1][T+1];
+	
+	public static void main (String[] args) throws IOException{
+		ArrayList<Edge> list=sortEdges("C:\\comp401workspace\\Evodata.txt");
+		HashMap <Integer, ArrayList<Integer>> comp=Kruskal(list);
+		ArrayList<Attractor> attractors=findAttractors(comp);
+		//System.out.print("MST");
+		System.out.print("Size");
+		System.out.print("   Rep Talk");
+		//System.out.print("   Min to same");
+		//System.out.print("   Max to diff");
+		for (int i=0; i<attractors.size(); i++){
+			System.out.println();
+			Attractor a=attractors.get(i);
+			//System.out.print(a.component);
+			System.out.print(a.compsize);
+			System.out.print("\t" +a.reptalk);
+			//System.out.print("\t   " +a.mintosame);
+			//System.out.print("\t\t" +a.maxtodiff);
+		}
+	}
+	
+	public static ArrayList<Edge> sortEdges(String file) throws IOException{
+		BufferedReader reader=new BufferedReader(new FileReader(file));
+		ArrayList<Edge> list=new ArrayList<Edge>();
+		reader.readLine();
+
+		for (int i=1; i<=T; i++){
+			String line=reader.readLine();
+			String[] parts=line.split("\t");
+			int from=Integer.parseInt(parts[0]);
+			for (int j=1; j<=T; j++ ){
+				int to=j;
+				double weight=Double.parseDouble(parts[j]);
+				list.add(new Edge(from, to, weight));
+				d[i][j]=weight;
+			}
+		}
+		
+		Collections.sort(list, new Comparator<Edge>() {
+		    public int compare(Edge x, Edge y) {
+				  if (x.weight > y.weight) 
+				    return -1;
+				  else if (x.weight < y.weight) 
+				    return 1;
+				  else 
+				    return 0;
+		    }
+		});
+		return list;
+	}
+	public static HashMap <Integer, ArrayList<Integer>> Kruskal(ArrayList<Edge> list){
+		int [] c= new int [T+1];
+		HashMap <Integer, ArrayList<Integer>> comp=new HashMap<Integer, ArrayList<Integer>>();
+		int num_comp=T;
+		for (int i=1; i<=T; i++){
+			c[i]=i;
+			ArrayList<Integer> talks=new ArrayList<Integer>();
+			talks.add(i);
+			comp.put(i, talks);
+		}
+		
+		while (num_comp > G){
+			Edge max_edge=list.remove(0);
+			int a=max_edge.from;
+			int b=max_edge.to;
+			if (c[a]!=c[b]){
+				if(comp.get(c[a]).size()>comp.get(c[b]).size()){
+					ArrayList<Integer> blist=comp.get(c[b]);
+					int orig=c[b];
+					for (int i=0; i<blist.size(); i++){
+						int t=blist.get(i);
+						c[t]=c[a];
+						comp.get(c[a]).add(t);
+					}
+					comp.remove(orig);
+				}
+				else {
+					ArrayList<Integer> alist=comp.get(c[a]);
+					int orig=c[a];
+					for (int i=0; i<alist.size(); i++){
+						int t=alist.get(i);
+						c[t]=c[b];
+						comp.get(c[b]).add(t);
+					}
+					comp.remove(orig);
+				}
+				num_comp--;
+			}
+		}
+	return comp;	
+	}
+	
+	public static ArrayList<Attractor> findAttractors(HashMap <Integer, ArrayList<Integer>> comp){
+		ArrayList<Attractor> attractors=new ArrayList<Attractor>();
+		int component;
+		int compsize;
+		int reptalk;
+		double mintosame;
+		double maxtodiff;
+		for (Integer key: comp.keySet()){
+			component=key;
+			ArrayList<Integer> talks=comp.get(component);
+			compsize=talks.size();
+			reptalk=talks.get(0);
+			if (compsize>1){
+				double min=1;
+				for (int i=1; i<compsize; i++){
+					double dist=d[reptalk][talks.get(i)];
+					if (dist<min){
+						min=dist;
+					}	
+				}
+				mintosame=min;
+				for (int i=1; i<compsize; i++){
+					int t=talks.get(i);
+					double m=1;
+					for (int j=0; j<compsize; j++){
+						if (t!=talks.get(j)){
+							double dist=d[t][talks.get(j)];
+							if (dist<m){
+								m=dist;
+							}
+						}
+					}
+					if (m>mintosame){
+						reptalk=t;
+						mintosame=m;
+					}
+				}
+				attractors.add(new Attractor(component, compsize, reptalk, mintosame, findmax(reptalk,component, comp)));
+			}
+			else{
+				mintosame=1;
+				maxtodiff=findmax(reptalk,component, comp);
+				attractors.add(new Attractor (component, compsize, reptalk, mintosame, maxtodiff));
+			}
+		}
+		return attractors;
+	}
+	public static double findmax(int reptalk, int component, HashMap <Integer, ArrayList<Integer>> comp){
+		double max=0;
+		for (Integer key: comp.keySet()){
+			if (key!=component){
+				ArrayList<Integer> talks=comp.get(key);
+				for (int i=0; i<talks.size(); i++){
+					int t=talks.get(i);
+					double m=d[reptalk][t];
+					if (m>max){
+						max=m;
+					}
+				}
+			}
+		}
+		return max;
+	}
+}
